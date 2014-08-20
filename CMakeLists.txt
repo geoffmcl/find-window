@@ -12,15 +12,15 @@ else ()
     set(name find-window32)
     message(STATUS "*** 32-bit build of ${name}")
 endif ()
+set(dir src)
 add_executable( ${name} 
-    find-window.cpp find-window.h 
-    find-sprtf.cpp find-sprtf.h 
-    find-utils.cpp find-utils.h
-    targetver.h
+    ${dir}/find-window.cpp ${dir}/find-window.h 
+    ${dir}/find-sprtf.cpp ${dir}/find-sprtf.h 
+    ${dir}/find-utils.cpp ${dir}/find-utils.h
+    ${dir}/targetver.h
     )
 set_target_properties( ${name} PROPERTIES DEBUG_POSTFIX d )
 # deal with install - *** FIXME: NOTE SPECIAL PERSONAL INSTALL LOCATION ***
 install( TARGETS ${name} DESTINATION C:/MDOS )
 
 # eof
-
