@@ -36,7 +36,7 @@ build -
     Files:  
         build-me.bat - a helpful batch fiel to do the building and installing.
 
-build.x64  
+build.x64 -  
     Where the building of the 64-bit application takes place
     Files:  
         build-me.bat - a helpful batch file to do the building and installing.
@@ -44,6 +44,14 @@ build.x64
 NOTE: The very SPECIFIC install location in the above batch files, and in the 
 CMakeLists.txt file. I put all utility apps I build into a C:\MDOS directory, 
 which I then add to my PATH environment variable.
+
+bin -  
+Files:  
+find-window.exe   - A 64-bit pre-built binary
+find-window32.exe - A 32-bit pre-built binary
+
+Always take great care when downloading and using binaries from the internet! It is
+highly recomended you clone the full source and built the executables yourself.
 
 Enjoy...
 
