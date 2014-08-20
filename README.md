@@ -47,7 +47,7 @@ which I then add to my PATH environment variable.
 
 bin -  
 Files:  
-find-window.exe   - A 64-bit pre-built binary
+find-window.exe   - A 64-bit pre-built binary  
 find-window32.exe - A 32-bit pre-built binary
 
 Always take great care when downloading and using binaries from the internet! It is
