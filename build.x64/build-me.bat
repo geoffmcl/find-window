@@ -4,6 +4,7 @@
 @set TMPLOG=bldlog-1.txt
 @set CONTONERR=0
 @set BUILD_RELDBG=0
+@set VCVERS=14
 
 @REM ###########################################
 @REM NOTE: Specific install location
@@ -14,8 +15,8 @@
 @REM NOTE: MSVC 10 INSTALL LOCATION
 @REM Adjust to suit your environment
 @REM ##########################################
-@set GENERATOR=Visual Studio 10 Win64
-@set VS_PATH=C:\Program Files (x86)\Microsoft Visual Studio 10.0
+@set GENERATOR=Visual Studio %VCVERS% Win64
+@set VS_PATH=C:\Program Files (x86)\Microsoft Visual Studio %VCVERS%.0
 @set VC_BAT=%VS_PATH%\VC\vcvarsall.bat
 @if NOT EXIST "%VS_PATH%" goto NOVS
 @if NOT EXIST "%VC_BAT%" goto NOBAT
