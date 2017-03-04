@@ -20,7 +20,7 @@
 #include "find-utils.h"
 #include "find-sprtf.h"
 
-#define VERDATE "20130519"  // with -v show more information about found windows
+#define VERDATE "20170304"  // with -v show more information about found windows
 #define VERSION "0.0.3"
 
 // VERDATE "20130519"  // with whole compare, also check the window title does not match the test beginning
