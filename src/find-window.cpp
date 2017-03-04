@@ -24,6 +24,7 @@ typedef vSTRING::iterator vSi;
 vHWND vhwnds;
 vHWND vFinds;
 vSTRING vsSkip;
+static HWND conWin = 0;
 
 #define ISNUM(a)    ((a >= '0') && (a <= '9'))
 
@@ -34,6 +35,9 @@ int verbosity = 0;
 int iret = 0;
 int skip_found = 0;
 int do_set_window_focus = 0;
+
+BOOL skipped_console = FALSE;
+
 
 static const char *def_log = "tempfind.txt";
 
@@ -63,7 +67,7 @@ char *get_basepath(char *name)
     size_t len = strlen(cp);
     size_t i;
     int c;
-    int last = 0;
+    size_t last = 0;
     for (i = 0; i < len; i++) {
         c = cp[i];
         if ((c == '/')||(c == '\\'))
@@ -169,7 +173,41 @@ void set_window_focus( HWND hwnd )
     }
 }
 
-void show_window(HWND hwnd)
+/* =========================================================================================
+* 20130519 - UGH Since Windows 7 changes the title of the console to match the
+* command, this means a window is ALWAYS found
+* Either need to get MORE information about the window, and somehow eliminate
+* the console the command was run in, like -
+BOOL WINAPI GetWindowInfo( HWND hwnd, PWINDOWINFO pwi );
+typedef struct tagWINDOWINFO {
+DWORD cbSize;
+RECT  rcWindow;
+RECT  rcClient;
+DWORD dwStyle;
+DWORD dwExStyle;
+DWORD dwWindowStatus;
+UINT  cxWindowBorders;
+UINT  cyWindowBorders;
+ATOM  atomWindowType;
+WORD  wCreatorVersion;
+} WINDOWINFO, *PWINDOWINFO, *LPWINDOWINFO;
+Where -
+dwWindowStatus Type: DWORD
+The window status. If this member is WS_ACTIVECAPTION (0x0001), the window
+is active. Otherwise, this member is zero.
+So could IGNORE the 'ACTIVE' window since that is obvious NOT the window sought
+OR
+Using the title search, only if the title begins with the title sought
+
+Or maybe skip the associated console window
+HWND WINAPI GetConsoleWindow(void);
+* ========================================================================================= */
+
+// type
+// 1 = title matches
+// 2 = reshow at end if VERB9
+// 9 = only VERB9
+void show_window(HWND hwnd, int type)
 {
     DWORD dwProcID;
     DWORD dwThreadID = GetWindowThreadProcessId( hwnd, &dwProcID );
@@ -178,6 +216,21 @@ void show_window(HWND hwnd)
     char *cp = window_title;
     int len = GetWindowText( hwnd, cp, MX_WIN_TITLE );
     printf("%p [%08X:%08X] [%s]%d \n", hwnd, dwProcID, dwThreadID, cp, len);
+    if (type != 9) {
+        // show MORE information about window
+        WINDOWPLACEMENT wp;
+        WINDOWINFO wi;
+        BOOL gwp = GetWindowPlacement(hwnd, &wp);
+        wi.cbSize = sizeof(WINDOWINFO);
+        BOOL gwi = GetWindowInfo(hwnd, &wi);
+        if (gwi) {
+            int width = wi.rcClient.right - wi.rcClient.left;
+            int height = wi.rcClient.bottom - wi.rcClient.top;
+            printf("Style: %s\n", GetWS(wi.dwStyle));
+            printf("Size: %s, Width: %d, Height: %d, Pos: %s\n", GetRECTStg(&wi.rcClient), width, height, GetRECTStg(&wi.rcWindow));
+        }
+
+    }
 }
 
 void log_window( HWND hwnd, char *cp, int len )
@@ -196,8 +249,6 @@ void out_to_log( HWND hwnd )
 
 void save_window(HWND hwnd, char *cp, int len)
 {
-    //printf("%p [%s]\n", hwnd, cp);
-    // show_window(hwnd);
     iret++;
     vFinds.push_back(hwnd);
 }
@@ -217,36 +268,15 @@ BOOL is_in_skip( HWND hwnd, char *cp, int len )
             }
         }
     }
+    if (!bRet) {
+        if (conWin && (conWin == hwnd)) {
+            bRet = TRUE;
+            skipped_console = TRUE;
+        }
+    }
     return bRet;
 }
 
-/* =========================================================================================
- * 20130519 - UGH Since Windows 7 changes the title of the console to match the 
- * command, this means a window is ALWAYS found
- * Either need to get MORE information about the window, and somehow eliminate 
- * the console the command was run in, like -
-   BOOL WINAPI GetWindowInfo( HWND hwnd, PWINDOWINFO pwi );
-    typedef struct tagWINDOWINFO {
-      DWORD cbSize;
-      RECT  rcWindow;
-      RECT  rcClient;
-      DWORD dwStyle;
-      DWORD dwExStyle;
-      DWORD dwWindowStatus;
-      UINT  cxWindowBorders;
-      UINT  cyWindowBorders;
-      ATOM  atomWindowType;
-      WORD  wCreatorVersion;
-    } WINDOWINFO, *PWINDOWINFO, *LPWINDOWINFO;
-    Where -
-    dwWindowStatus Type: DWORD
-     The window status. If this member is WS_ACTIVECAPTION (0x0001), the window 
-     is active. Otherwise, this member is zero. 
-    So could IGNORE the 'ACTIVE' window since that is obvious NOT the window sought
-    OR
-    Using the title search, only if the title begins with the title sought
-
- * ========================================================================================= */
 BOOL process_hwnd( HWND hwnd )
 {
     BOOL bRet = FALSE;
@@ -262,8 +292,10 @@ BOOL process_hwnd( HWND hwnd )
             bRet = TRUE;
         }
     }
-    if ( VERB9() || ( bRet && VERB1() )) {
-        show_window(hwnd);
+    if (bRet && VERB1()) {
+        show_window(hwnd, 1);
+    } else if ( VERB9() ) {
+        show_window(hwnd, 9);
     }
     return bRet;
 }
@@ -300,7 +332,6 @@ void do_log_file(char *name)
     set_log_file(cp,false);
 }
 
-
 int _tmain(int argc, _TCHAR* argv[])
 {
     int i;
@@ -309,6 +340,7 @@ int _tmain(int argc, _TCHAR* argv[])
     string s;
 
     do_log_file(argv[0]);
+    conWin = GetConsoleWindow();
 
     if (argc < 2) {
         // give_help(argv[0]);
@@ -380,17 +412,17 @@ Bad_Arg:
         }
     }
     if (!title_to_find) {
-        printf("ERROR: No 'title' to find found in command! Aborting (3)\n", arg);
+        printf("ERROR: No 'title' to find found in command! Aborting (3)\n");
         return 3;
     }
     vhwnds.clear();
     vFinds.clear();
     EnumWindows( EnumWindowsProc, (LPARAM)0 );
     if (VERB1()) {
-        printf("EnumWindows returned %d handles...\n", vhwnds.size());
+        printf("EnumWindows returned %d handles...\n", (int)vhwnds.size());
     }
 
-    sprtf("EnumWindows returned %d handles...\n", vhwnds.size());
+    sprtf("EnumWindows returned %d handles...\n", (int)vhwnds.size());
 
     vHi ii = vhwnds.begin();
     int found = 0;
@@ -407,7 +439,14 @@ Bad_Arg:
         (whole_compare ? "whole" : "partial"),
         verbosity );
     if (skip_found) {
-        sprtf("but skipped %d due to -s",skip_found);
+        if (skipped_console) {
+            sprtf("but skipped console");
+            if (skip_found > 1)
+                sprtf(", and %d due to -s", (skip_found - 1));
+        }
+        else {
+            sprtf("but skipped %d due to -s", skip_found);
+        }
     }
     sprtf("\n");
     if (VERB1()) {
@@ -418,7 +457,14 @@ Bad_Arg:
             (whole_compare ? "whole" : "partial"),
             verbosity );
         if (skip_found) {
-            printf("but skipped %d due to -s",skip_found);
+            if (skipped_console) {
+                printf("but skipped console");
+                if (skip_found > 1)
+                    printf(", and %d due to -s", (skip_found - 1));
+            }
+            else {
+                printf("but skipped %d due to -s", skip_found);
+            }
         }
         printf("\n");
     }
@@ -429,7 +475,7 @@ Bad_Arg:
         ii = vFinds.begin();
         for ( ; ii != vFinds.end(); ii++ ) {
             hwnd = *ii;
-            show_window(hwnd);
+            show_window(hwnd,2);
         }
     }
     sprtf("List of %d windows matching...\n", found);
@@ -461,23 +507,23 @@ void give_help(char *name)
     char *title = get_basename(name);
     char *bpath = get_basepath(name);
     strcat(bpath,def_log);
-    printf("%s: version %s, built %s, at %s\n",
-        title, VERSION, __DATE__, __TIME__ );
+    printf("%s: version %s, circa %s\n",
+        title, VERSION, VERDATE );
     printf("Usage: %s [options] title-to-find\n", title );
     printf("Options:\n");
     printf(" --help  (-h or -?) = Show this help and exit(2)\n");
     printf(" --find=title  (-f) = Alternative way to set title to find.\n");
     printf(" --verb[=N]    (-v) = Bump or set verbosity\n");
-    printf(" --skip=title  (-s) = Skip wondows containing this in the title.\n");
+    printf(" --skip=title  (-s) = Skip windows containing this in the title.\n");
     printf(" --whole       (-w) = Only matching this whole title.\n");
     printf(" --case        (-c) = Set case sensitive when searching.\n");
     printf(" --top         (-t) = Attempt to bring found window to top of z order.\n");
-    printf("Will enumerate ALL windows, and exit(1) if title 'found',\n");
-    printf("and show found window details if verbosity set to at least 1,\n");
-    printf("Else exit(0) = none found matching. Errors will exit(2)\n");
-    printf("Verbosity 9 will show ALL windows enumerated.\n");
-    printf("List of all windows found, together with some other information,\n");
-    printf("is written to '%s', the runtime of the exe.\n", bpath);
+    printf(" Will enumerate ALL windows, and exit(1) if title 'found',\n");
+    printf(" and show found window details if verbosity set to at least 1,\n");
+    printf(" Else exit(0) = none found matching. Errors will exit(2)\n");
+    printf(" Verbosity 9 will show ALL windows enumerated.\n");
+    printf(" List of all windows found, together with some other information,\n");
+    printf(" is written to '%s', the runtime of the exe.\n", bpath);
 }
 
 // eof - find-window.cpp

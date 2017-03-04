@@ -17,6 +17,9 @@ extern INT   InStr( PTSTR lpb, PTSTR lps );
 
 extern void printError( TCHAR* msg, DWORD eNum );
 
+extern PTSTR GetWS(DWORD style);
+extern PTSTR GetRECTStg(PRECT pr);
+
 
 #endif // #ifndef _FIND_UTILS_H_
 // eof - find-utils.h
