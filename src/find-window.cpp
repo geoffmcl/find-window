@@ -235,9 +235,18 @@ void show_window(HWND hwnd, int type)
 
 void log_window( HWND hwnd, char *cp, int len )
 {
+    BOOL gwi = false;
     DWORD dwProcID;
     DWORD dwThreadID = GetWindowThreadProcessId( hwnd, &dwProcID );
-    sprtf("%p [%08X:%08X] [%s]%d \n", hwnd, dwProcID, dwThreadID, cp, len );
+    WINDOWINFO wi;
+    PTSTR ps = "inf.failed";
+    memset(&wi, 0, sizeof(wi));
+    wi.cbSize = sizeof(WINDOWINFO);
+    gwi = GetWindowInfo(hwnd, &wi);
+    if (gwi) {
+        ps = GetWS(wi.dwStyle);
+    }
+    sprtf("%p [%08X:%08X] t=[%s]%d s=[%s](%x)\n", hwnd, dwProcID, dwThreadID, cp, len, ps, wi.dwStyle);
 }
 
 void out_to_log( HWND hwnd )
