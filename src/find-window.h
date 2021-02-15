@@ -20,8 +20,12 @@
 #include "find-utils.h"
 #include "find-sprtf.h"
 
-#define VERDATE "20190915"  // add show window style
-#define VERSION "0.0.4"
+#define VERDATE "20210215"  // in DELL03, use APPDATA, ...
+#define VERSION "0.0.5"
+#define APPNAME "find-window"
+
+// VERDATE "20190915"  // add show window style
+// VERSION "0.0.4"
 
 // VERDATE "20170304"  // with -v show more information about found windows
 // VERSION "0.0.3"

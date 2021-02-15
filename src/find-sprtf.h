@@ -11,6 +11,7 @@
 
 extern int add_std_out( int val );
 extern int add_sys_time( int val );
+extern char* get_log_file(void);
 extern int open_log_file( void );
 extern void close_log_file( void );
 extern void set_log_file( char * nf, bool open = true );

@@ -11,9 +11,22 @@
 #include "find-window.h"
 
 #include <vector>
+#include <algorithm>    // std::sort
 #include <string>
 
 using namespace std;
+//UINT    g_uWinCount = 0;
+#define MX_WIN_TITLE 264
+
+typedef struct tagMYWININFO {
+    HWND hwnd;
+    DWORD dwProcID;
+    DWORD dwThreadID;
+    BOOL gwi;
+    WINDOWINFO wi;
+    int len;
+    char title[MX_WIN_TITLE];
+}MYWININFO, * PMYWININFO;
 
 typedef vector<HWND>    vHWND;
 typedef vHWND::iterator vHi;
@@ -21,9 +34,15 @@ typedef vHWND::iterator vHi;
 typedef vector<string> vSTRING;
 typedef vSTRING::iterator vSi;
 
+typedef vector<MYWININFO> vMWI;
+
+typedef vector<DWORD> vDWORD;
+
 vHWND vhwnds;
+vMWI vmwi;
 vHWND vFinds;
 vSTRING vsSkip;
+
 static HWND conWin = 0;
 
 #define ISNUM(a)    ((a >= '0') && (a <= '9'))
@@ -37,9 +56,6 @@ int skip_found = 0;
 int do_set_window_focus = 0;
 
 BOOL skipped_console = FALSE;
-
-
-static const char *def_log = "tempfind.txt";
 
 int VERB1() { return (verbosity >= 1) ? 1 : 0; }
 int VERB2() { return (verbosity >= 2) ? 1 : 0; }
@@ -80,8 +96,6 @@ char *get_basepath(char *name)
 }
 
 
-//UINT    g_uWinCount = 0;
-#define MX_WIN_TITLE 264
 char window_title[MX_WIN_TITLE+2];
 /* =================================================
     20130519 - Another idea about 'whole_compare'
@@ -233,27 +247,105 @@ void show_window(HWND hwnd, int type)
     }
 }
 
-void log_window( HWND hwnd, char *cp, int len )
+void log_mwi(MYWININFO& mwi)
 {
-    BOOL gwi = false;
-    DWORD dwProcID;
-    DWORD dwThreadID = GetWindowThreadProcessId( hwnd, &dwProcID );
-    WINDOWINFO wi;
     PTSTR ps = "inf.failed";
-    memset(&wi, 0, sizeof(wi));
-    wi.cbSize = sizeof(WINDOWINFO);
-    gwi = GetWindowInfo(hwnd, &wi);
-    if (gwi) {
-        ps = GetWS(wi.dwStyle);
-    }
-    sprtf("%p [%08X:%08X] t=[%s]%d s=[%s](%x)\n", hwnd, dwProcID, dwThreadID, cp, len, ps, wi.dwStyle);
+    if (mwi.gwi)
+        ps = GetWS(mwi.wi.dwStyle);
+    sprtf("%p [%08X:%08X] t=[%s]%d s=[%s](%x)\n", mwi.hwnd, mwi.dwProcID, mwi.dwThreadID, mwi.title, mwi.len, ps, mwi.wi.dwStyle);
 }
+
+
+/* --------------------
+typedef struct tagMYWININFO {
+    HWND hwnd;
+    DWORD dwProcID;
+    DWORD dwThreadID;
+    BOOL gwi;
+    WINDOWINFO wi;
+    int len;
+    char title[MX_WIN_TITLE];
+}MYWININFO, * PMYWININFO;
+   ---------------------- */
+
+static MYWININFO mwi;
+
+void log_window( HWND hwnd, char *cp, int len, int from )
+{
+    memset(&mwi, 0, sizeof(MYWININFO));
+    mwi.gwi = false;
+    mwi.hwnd = hwnd;
+    mwi.len = len;
+    if (len && cp)
+        strcpy(&mwi.title[0], cp);
+    mwi.wi.cbSize = sizeof(WINDOWINFO);
+    mwi.dwThreadID = GetWindowThreadProcessId( mwi.hwnd, &mwi.dwProcID );
+    //PTSTR ps = "inf.failed";
+    mwi.gwi = GetWindowInfo(mwi.hwnd, &mwi.wi);
+    //if (mwi.gwi) {
+    //    ps = GetWS(mwi.wi.dwStyle);
+    //}
+    log_mwi(mwi);
+    //sprtf("%p [%08X:%08X] t=[%s]%d s=[%s](%x)\n", mwi.hwnd, mwi.dwProcID, mwi.dwThreadID, mwi.title, mwi.len, ps, mwi.wi.dwStyle);
+    if (from == 1) {
+        vmwi.push_back(mwi);
+    }
+}
+
+void add_pid_if(DWORD in_pid, vDWORD& vpid)
+{
+    DWORD pid;
+    size_t ii, max = vpid.size();
+    for (ii = 0; ii < max; ii++) {
+        pid = vpid[ii];
+        if (pid == in_pid)
+            return;
+    }
+    vpid.push_back(in_pid);
+
+}
+
+void log_win_info()
+{
+    DWORD pid, pid2;
+    MYWININFO mwi;
+    vDWORD vpid;
+    size_t ii, max = vmwi.size();
+    size_t i2, max2, cnt, cnt2;
+    for (ii = 0; ii < max; ii++) {
+        mwi = vmwi[ii];
+        pid = mwi.dwProcID;
+        add_pid_if(pid, vpid);
+    }
+    sort(vpid.begin(), vpid.end());
+    max2 = vpid.size();
+    sprtf("Log of %ld windows by %ld Procees IDs, sorted...\n", max, max2);
+    cnt = 0;
+    for (i2 = 0; i2 < max2; i2++) {
+        pid2 = vpid[i2];
+        sprtf("pid %lu (%08X)\n", pid2, pid2);
+        cnt2 = 0;
+        for (ii = 0; ii < max; ii++) {
+            mwi = vmwi[ii];
+            pid = mwi.dwProcID;
+            if (pid == pid2) {
+                log_mwi(mwi);
+                cnt++;
+                cnt2++;
+            }
+        }
+        sprtf("Listed %lu\n", cnt2);
+    }
+    sprtf("Done %ld Procees IDs, sorted, of %ld windows...\n", max2, cnt);
+
+}
+
 
 void out_to_log( HWND hwnd )
 {
     char *cp = window_title;
     int len = GetWindowText( hwnd, cp, MX_WIN_TITLE );
-    log_window( hwnd, cp, len );
+    log_window( hwnd, cp, len, 2);
 }
 
 void save_window(HWND hwnd, char *cp, int len)
@@ -291,7 +383,7 @@ BOOL process_hwnd( HWND hwnd )
     BOOL bRet = FALSE;
     char *cp = window_title;
     int len = GetWindowText( hwnd, cp, MX_WIN_TITLE );
-    log_window( hwnd, cp, len );
+    log_window( hwnd, cp, len, 1);
     if ( len && title_matches(cp,len) ) {
         BOOL b = is_in_skip(hwnd,cp,len);
         if (b) {
@@ -319,24 +411,7 @@ void give_help(char *name);
 
 void do_log_file(char *name)
 {
-    char *cp = GetNxtBuf();
-    DWORD dwd = GetModuleFileName( NULL, cp, 256 );
-    if (dwd == 256)
-        strcpy(cp,name);
-    size_t len = strlen(cp);
-    char c;
-    size_t i;
-    size_t last;
-    last = 0;
-    for (i = 0; i < len; i++) {
-        c = cp[i];
-        if (( c == '/' ) || ( c == '\\' ))
-            last = i + 1;
-        if ( c == '/' )
-            cp[i] = '\\';
-    }
-    cp[last] = 0;
-    strcat(cp,def_log);
+    char *cp = get_log_file();
     // printf("Setting log file to '%s'\n",cp);
     set_log_file(cp,false);
 }
@@ -428,10 +503,10 @@ Bad_Arg:
     vFinds.clear();
     EnumWindows( EnumWindowsProc, (LPARAM)0 );
     if (VERB1()) {
-        printf("EnumWindows returned %d handles...\n", (int)vhwnds.size());
+        printf("EnumWindows returned %d top-level window handles...\n", (int)vhwnds.size());
     }
 
-    sprtf("EnumWindows returned %d handles...\n", (int)vhwnds.size());
+    sprtf("EnumWindows returned %d  top-level window handles...\n", (int)vhwnds.size());
 
     vHi ii = vhwnds.begin();
     int found = 0;
@@ -441,6 +516,8 @@ Bad_Arg:
         if (process_hwnd(hwnd) )
             found++;
     }
+    log_win_info(); // add windows again ordered by process ID
+
     sprtf("Found %d, seeking [%s], case %s, %s, at verbosity %d ",
         found,
         title_to_find,
@@ -502,10 +579,9 @@ Bad_Arg:
     }
     vhwnds.clear();
     vFinds.clear();
-    if (VERB1()) {
-        sprtf("Exit ERRORLEVEL %d\n",iret);
-    }
-    sprtf("End of application...\n");
+    vmwi.clear();
+
+    sprtf("End of application... exit %d\n", iret);
     close_log_file();
 
 	return iret;    // relects the number of finds
@@ -514,8 +590,7 @@ Bad_Arg:
 void give_help(char *name)
 {
     char *title = get_basename(name);
-    char *bpath = get_basepath(name);
-    strcat(bpath,def_log);
+    char* bpath = get_log_file(); // get_basepath(name);
     printf("%s: version %s, circa %s\n",
         title, VERSION, VERDATE );
     printf("Usage: %s [options] title-to-find\n", title );
