@@ -25,7 +25,13 @@ install( TARGETS ${name} DESTINATION C:/MDOS )
 
 # ADD the GUI
 # Now excluded ${dir}/stdafx.cpp ${dir}/stdafx.h
-set(name find_window)
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(name find_window)
+    message(STATUS "*** 64-bit build of ${name}")
+else ()
+    set(name find_window32)
+    message(STATUS "*** 32-bit build of ${name}")
+endif ()
 set(dir GUI)
 set(GUI_srcs
     ${dir}/find_ABT.cpp   ${dir}/find_ABT.h

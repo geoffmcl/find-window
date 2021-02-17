@@ -1,10 +1,10 @@
 @setlocal
 
+@set DOINST=0
 @set TMPPRJ=find-window
 @set TMPLOG=bldlog-1.txt
 @set CONTONERR=0
 @set BUILD_RELDBG=0
-@set VCVERS=14
 
 @REM ###########################################
 @REM NOTE: Specific install location
@@ -12,53 +12,15 @@
 @set TMPINST=C:\MDOS
 
 @REM ############################################
-@REM NOTE: MSVC 10 INSTALL LOCATION
+@REM NOTE: MSVC 16 2019
 @REM Adjust to suit your environment
 @REM ##########################################
-@set GENERATOR=Visual Studio %VCVERS% Win64
-@set VS_PATH=C:\Program Files (x86)\Microsoft Visual Studio %VCVERS%.0
-@set VC_BAT=%VS_PATH%\VC\vcvarsall.bat
-@if NOT EXIST "%VS_PATH%" goto NOVS
-@if NOT EXIST "%VC_BAT%" goto NOBAT
-@set BUILD_BITS=%PROCESSOR_ARCHITECTURE%
-@IF /i %BUILD_BITS% EQU x86_amd64 (
-    @set "RDPARTY_ARCH=x64"
-    @set "RDPARTY_DIR=software.x64"
-) ELSE (
-    @IF /i %BUILD_BITS% EQU amd64 (
-        @set "RDPARTY_ARCH=x64"
-        @set "RDPARTY_DIR=software.x64"
-    ) ELSE (
-        @echo Appears system is NOT 'x86_amd64', nor 'amd64'
-        @echo Can NOT build the 64-bit version! Aborting
-        @exit /b 1
-    )
-)
+@set GENERATOR=Visual Studio 16 2019
 
-@ECHO Setting environment - CALL "%VC_BAT%" %BUILD_BITS%
-@CALL "%VC_BAT%" %BUILD_BITS%
-@if ERRORLEVEL 1 goto NOSETUP
 @set TMPOPTS=
 @set TMPOPTS=%TMPOPTS% -DCMAKE_INSTALL_PREFIX:PATH=%TMPINST%
-@set TMPOPTS=%TMPOPTS% -G "%GENERATOR%"
-
-@REM To help find Qt4
-@REM Try adding path to qmake.exe to PATH
-@REM set PATH=C:\QtSDK\Desktop\Qt\4.8.0\msvc2010\bin;%PATH%
-@REM THat WORKED ;=/
-@REM Try adding QTDIR to environment
-@REM set QTDIR=C:\QtSDK\Desktop\Qt\4.8.0\msvc2010\bin
-@REM That ALSO works - now which to make PERMANENT?
-@REM Ok, decide to add it to PATH
-@REM And OK, that WORKS FINE
-@REM 20131125 - started to FAIL again???? Try
-@REM set Qt4_DIR=C:\QtSDK
-@REM set Qt4_DIR=C:\QtSDK\Desktop\Qt\4.8.0\msvc2010\bin
-@REM set Qt4_DIR=C:\Qt\4.8.6-x86\bin
-@REM set Qt4_DIR=C:\Qt\4.8.6\bin
-@REM call setupqt64
-@REM set QTDIR=%Qt4_DIR%
-@REM set QTDIR=C:\QtSDK\Desktop\Qt\4.8.0\msvc2010
+@set TMPOPTS=%TMPOPTS% -G "%GENERATOR%" -A Win32
+@set TMPOPTS=%TMPOPTS% -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
 
 @call chkmsvc %TMPPRJ%
 
@@ -96,6 +58,10 @@
 @echo.
 @echo Appears successful...
 @echo.
+@if NOT "%DOINST%x" == "1x" (
+@echo Install NOT configued. Set DOINST=1
+@goto END
+)
 @echo Continue with Release install to %TMPINST%?
 @echo.
 @pause
@@ -132,16 +98,9 @@
 @echo ERROR: cmake build Release >> %TMPLOG%
 @goto ISERR
 
-:NOVS
-@echo ERROR: Can NOT locate path %VS_PATH%! *** FIX ME *** to where MSVC is installed
-@goto ISERR
-
-:NOBAT
-@echo ERROR: Can NOT locate batch %VC_BAT%! *** FIX ME *** to where MSVC is installed
-@goto ISERR
-
-:NOSETUP
-@echo ERROR: Running the %VC_BAT% caused an ERROR! *** FIX ME ***
+:ERR5
+@echo ERROR: cmake install Release
+@echo ERROR: cmake install Release >> %TMPLOG%
 @goto ISERR
 
 :ISERR
