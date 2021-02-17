@@ -53,9 +53,11 @@ find-window32.exe - A 32-bit pre-built binary
 Always take great care when downloading and using binaries from the internet! It is
 highly recomended you clone the full source and built the executables yourself.
 
+20210217: AAdd in a crude GUI source
+
 Enjoy...
 
 Geoff.  
-20140820
+20210217 - 20140820
         
 ; eof
